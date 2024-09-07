@@ -1,0 +1,64 @@
+name: '管理通知'
+description: '管理并限制通知发送'
+inputs:
+  github_token:
+    description: 'GitHub token'
+    required: true
+  operation_result:
+    description: '操作结果 (true为成功, false为失败)'
+    required: true
+  notification_interval:
+    description: '两次通知之间的最小间隔时间（秒）默认1小时'
+    required: false
+    default: '3600'
+  max_notifications_per_day:
+    description: '24小时内最大通知次数'
+    required: false
+    default: '3'
+  issue_title:
+    description: 'Issue 标题'
+    required: false
+    default: ${{ github.job }}
+  issue_label:
+    description: 'Issue 标签'
+    required: false
+    default: ''
+  keep_latest_only_message:
+    description: '是否只保留最新的记录 (true/false)'
+    required: false
+    default: 'true'
+  debug_mode:
+    description: '是否启用调试模式 (true/false)'
+    required: false
+    default: 'false'
+outputs:
+  should_notify:
+    description: '是否应该发送通知'
+    value: ${{ steps.manage_notifications.outputs.should_notify }}
+  error_message:
+    description: '如果发生错误，这里会包含错误信息'
+    value: ${{ steps.manage_notifications.outputs.error_message }}
+  notification_count:
+    description: '24小时内的通知数'
+    value: ${{ steps.manage_notifications.outputs.notification_count }}
+  last_notification_time:
+    description: '最后一次通知的时间'
+    value: ${{ steps.manage_notifications.outputs.last_notification_time }}
+runs:
+  using: "composite"
+  steps:
+    - id: manage_notifications
+      shell: bash
+      env:
+        INPUT_GITHUB_TOKEN: ${{ inputs.github_token }}
+        INPUT_NOTIFICATION_INTERVAL: ${{ inputs.notification_interval }}
+        INPUT_MAX_NOTIFICATIONS_PER_DAY: ${{ inputs.max_notifications_per_day }}
+        INPUT_ISSUE_TITLE: ${{ inputs.issue_title }}
+        INPUT_ISSUE_LABEL: ${{ inputs.issue_label }}
+        INPUT_KEEP_LATEST_ONLY_MESSAGE: ${{ inputs.keep_latest_only_message }}
+        INPUT_OPERATION_RESULT: ${{ inputs.operation_result }}
+        INPUT_DEBUG_MODE: ${{ inputs.debug_mode }}
+        TZ: Asia/Shanghai
+      run: |
+        chmod +x ${{ github.action_path }}/manage-notifications.sh
+        ${{ github.action_path }}/manage-notifications.sh
