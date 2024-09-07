@@ -1,0 +1,60 @@
+name: Version Bump and Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Get latest tag and bump version
+      id: version
+      run: |
+        latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
+        echo "Latest tag: $latest_tag"
+        
+        if [[ $latest_tag =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+          major="${BASH_REMATCH[1]}"
+          minor="${BASH_REMATCH[2]}"
+          patch="${BASH_REMATCH[3]}"
+          
+          if git log -1 --pretty=%B | grep -q "BREAKING"; then
+            new_tag="v$((major + 1)).0.0"
+          elif git log -1 --pretty=%B | grep -q "feat:"; then
+            new_tag="v$major.$((minor + 1)).0"
+          else
+            new_tag="v$major.$minor.$((patch + 1))"
+          fi
+        else
+          new_tag="v0.1.0"
+        fi
+        
+        echo "New tag: $new_tag"
+        echo "new_tag=$new_tag" >> $GITHUB_OUTPUT
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.version.outputs.new_tag }}
+        name: Release ${{ steps.version.outputs.new_tag }}
+        body: |
+          New release version ${{ steps.version.outputs.new_tag }}
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Update latest tag
+      run: |
+        git config user.name github-actions
+        git config user.email github-actions@github.com
+        git tag -fa latest -m "Update latest tag to ${{ steps.version.outputs.new_tag }}"
+        git push origin latest --force
